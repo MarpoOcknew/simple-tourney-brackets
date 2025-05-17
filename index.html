@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tournament Bracket Tool</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0d0d0d;
+      color: #00ffcc;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .app {
+      max-width: 100%;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+      color: #00e6e6;
+      text-shadow: 0 0 10px #00e6e6;
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      margin-bottom: 0.25rem;
+      font-size: 0.9rem;
+      color: #00cccc;
+    }
+    .controls input,
+    .controls button {
+      padding: 0.75rem;
+      border-radius: 5px;
+      font-size: 1rem;
+      border: 1px solid #00ffcc;
+      background: #1a1a1a;
+      color: #00ffcc;
+      transition: all 0.2s ease-in-out;
+    }
+    input::placeholder {
+      color: #00cccc;
+    }
+    input:focus {
+      outline: none;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+    button {
+      background: #003333;
+      font-size: 1.2rem;
+      font-weight: bold;
+      padding: 1rem;
+    }
+    button:hover:not(:disabled) {
+      background: #004d4d;
+    }
+    button:disabled {
+      background: #333;
+      color: #666;
+      border-color: #333;
+    }
+    .players {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .player {
+      background: #002929;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      font-size: 0.9rem;
+      border: 1px solid #00ffcc;
+    }
+    .round {
+      margin-top: 2rem;
+      padding: 1rem;
+      border: 1px solid #00e6e6;
+      border-radius: 10px;
+      background: #111;
+    }
+    .round h2 {
+      margin-top: 0;
+    }
+    h2 {
+      color: #00e6e6;
+      text-shadow: 0 0 5px #00e6e6;
+    }
+    ul {
+      padding-left: 1rem;
+    }
+    li {
+      margin-bottom: 0.5rem;
+      border-left: 2px solid #00ffcc;
+      padding-left: 0.5rem;
+    }
+    .row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .half-width {
+      flex: 1 1 50%;
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+      color: #00e6e6;
+      text-shadow: 0 0 5px #00e6e6;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <h1>Tournament Bracket Tool</h1>
+
+    <div class="controls">
+      <input id="playerInput" placeholder="Enter player name" />
+      <button id="addPlayerBtn">Add Player</button>
+    
+      <div class="row">
+        <div class="half-width">
+          <label for="tablesInput">Tables</label>
+          <input type="number" id="tablesInput" min="1" max="8" value="5" />
+        </div>
+        <div class="half-width">
+          <label for="roundsInput">Rounds</label>
+          <input type="number" id="roundsInput" min="1" max="3" value="3" />
+        </div>
+      </div>
+    </div>
+
+    <div class="players" id="playerList"></div>
+
+    <button style="width: 100%; margin-bottom: 1rem;" id="startBtn" disabled>
+      Start Tournament
+    </button>
+
+    <div id="schedule"></div>
+  </div>
+
+  <script>
+    const maxPlayers = 16;
+    let players = [];
+    let schedule = [];
+
+    const playerInput = document.getElementById('playerInput');
+    const addPlayerBtn = document.getElementById('addPlayerBtn');
+    const playerList = document.getElementById('playerList');
+    const tablesInput = document.getElementById('tablesInput');
+    const roundsInput = document.getElementById('roundsInput');
+    const startBtn = document.getElementById('startBtn');
+    const scheduleContainer = document.getElementById('schedule');
+
+    playerInput.addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') addPlayer();
+    });
+    addPlayerBtn.addEventListener('click', addPlayer);
+    startBtn.addEventListener('click', startTournament);
+
+    function addPlayer() {
+      const name = playerInput.value.trim();
+      if (name && players.length < maxPlayers) {
+        players.push(name);
+        playerInput.value = '';
+        renderPlayers();
+        startBtn.disabled = players.length < 2;
+      }
+    }
+
+    function renderPlayers() {
+      playerList.innerHTML = '';
+      players.forEach(player => {
+        const div = document.createElement('div');
+        div.className = 'player';
+        div.textContent = player;
+        playerList.appendChild(div);
+      });
+    }
+
+    function generateSchedule(players, tables, rounds) {
+      const schedule = [];
+      const playedPairs = new Set();
+      const usedTables = new Map();
+
+      for (let i = 0; i < rounds; i++) {
+        const roundMatches = [];
+        const availablePlayers = [...players];
+        const roundUsedTables = new Set();
+        for (let j = availablePlayers.length - 1; j > 0; j--) {
+          const k = Math.floor(Math.random() * (j + 1));
+          [availablePlayers[j], availablePlayers[k]] = [availablePlayers[k], availablePlayers[j]];
+        }
+        while (availablePlayers.length > 1) {
+          const player1 = availablePlayers.shift();
+          let matchMade = false;
+          for (let j = 0; j < availablePlayers.length; j++) {
+            const player2 = availablePlayers[j];
+            const pairKey = [player1, player2].sort().join('-');
+            if (!playedPairs.has(pairKey)) {
+              for (let t = 1; t <= tables; t++) {
+                const tableUsers = usedTables.get(t) || new Set();
+                if (!tableUsers.has(player1) && !tableUsers.has(player2) && !roundUsedTables.has(t)) {
+                  roundMatches.push({ player1, player2, table: t });
+                  playedPairs.add(pairKey);
+                  tableUsers.add(player1);
+                  tableUsers.add(player2);
+                  usedTables.set(t, tableUsers);
+                  roundUsedTables.add(t);
+                  availablePlayers.splice(j, 1);
+                  matchMade = true;
+                  break;
+                }
+              }
+              if (matchMade) break;
+            }
+          }
+          if (!matchMade) availablePlayers.push(player1);
+        }
+        if (availablePlayers.length === 1) {
+          roundMatches.push({ player1: availablePlayers[0], player2: null, table: -1 });
+        }
+        schedule.push({ round: i + 1, matches: roundMatches });
+      }
+      return schedule;
+    }
+
+    function startTournament() {
+      const tables = parseInt(tablesInput.value) || 5;
+      const rounds = parseInt(roundsInput.value) || 3;
+      schedule = generateSchedule(players, tables, rounds);
+      renderSchedule();
+    }
+
+    function renderSchedule() {
+      scheduleContainer.innerHTML = '';
+      schedule.forEach(round => {
+        const div = document.createElement('div');
+        div.className = 'round';
+        div.innerHTML = `<h2>Round ${round.round}</h2>`;
+        const ul = document.createElement('ul');
+        round.matches.forEach(match => {
+          const li = document.createElement('li');
+          li.textContent = `${match.player1} vs ${match.player2 || 'Bye'}${match.table !== -1 ? ' - Table ' + match.table : ''}`;
+          ul.appendChild(li);
+        });
+        div.appendChild(ul);
+        scheduleContainer.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>
