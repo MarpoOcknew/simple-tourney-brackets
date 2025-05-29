@@ -12,7 +12,6 @@
       color: #00ffcc;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-
     .app {
       max-width: 100%;
       padding: 1rem;
@@ -27,21 +26,21 @@
     }
     .controls {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
       gap: 0.5rem;
       margin-bottom: 1rem;
     }
-    .control-group {
+    .control-item {
+      flex: 1 1 48%;
       display: flex;
       flex-direction: column;
     }
-    label {
-      margin-bottom: 0.25rem;
+    .control-item label {
       font-size: 0.9rem;
-      color: #00cccc;
+      margin-bottom: 0.2rem;
     }
-    .controls input,
-    .controls button {
+    input,
+    button {
       padding: 0.75rem;
       border-radius: 5px;
       font-size: 1rem;
@@ -106,22 +105,6 @@
       border-left: 2px solid #00ffcc;
       padding-left: 0.5rem;
     }
-    .row {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-    .half-width {
-      flex: 1 1 50%;
-      display: flex;
-      flex-direction: column;
-    }
-    label {
-      font-size: 0.9rem;
-      margin-bottom: 0.25rem;
-      color: #00e6e6;
-      text-shadow: 0 0 5px #00e6e6;
-    }
   </style>
 </head>
 <body>
@@ -129,18 +112,17 @@
     <h1>Tournament Bracket Tool</h1>
 
     <div class="controls">
-      <input id="playerInput" placeholder="Enter player name" />
-      <button id="addPlayerBtn">Add Player</button>
-    
-      <div class="row">
-        <div class="half-width">
-          <label for="tablesInput">Tables</label>
-          <input type="number" id="tablesInput" min="1" max="8" value="5" />
-        </div>
-        <div class="half-width">
-          <label for="roundsInput">Rounds</label>
-          <input type="number" id="roundsInput" min="1" max="3" value="3" />
-        </div>
+      <div class="control-item" style="flex: 1 1 100%;">
+        <input id="playerInput" placeholder="Enter player name" />
+        <button id="addPlayerBtn">Add Player</button>
+      </div>
+      <div class="control-item">
+        <label for="tablesInput">Tables</label>
+        <input type="number" id="tablesInput" min="1" max="8" value="5" />
+      </div>
+      <div class="control-item">
+        <label for="roundsInput">Rounds</label>
+        <input type="number" id="roundsInput" min="1" max="5" value="3" />
       </div>
     </div>
 
@@ -154,10 +136,7 @@
   </div>
 
   <script>
-    const maxPlayers = 16;
     let players = [];
-    let schedule = [];
-
     const playerInput = document.getElementById('playerInput');
     const addPlayerBtn = document.getElementById('addPlayerBtn');
     const playerList = document.getElementById('playerList');
@@ -174,7 +153,7 @@
 
     function addPlayer() {
       const name = playerInput.value.trim();
-      if (name && players.length < maxPlayers) {
+      if (name && !players.includes(name)) {
         players.push(name);
         playerInput.value = '';
         renderPlayers();
@@ -195,33 +174,35 @@
     function generateSchedule(players, tables, rounds) {
       const schedule = [];
       const playedPairs = new Set();
-      const usedTables = new Map();
+      const tableHistory = new Map();
+      players.forEach(p => tableHistory.set(p, new Set()));
 
-      for (let i = 0; i < rounds; i++) {
-        const roundMatches = [];
-        const availablePlayers = [...players];
-        const roundUsedTables = new Set();
-        for (let j = availablePlayers.length - 1; j > 0; j--) {
-          const k = Math.floor(Math.random() * (j + 1));
-          [availablePlayers[j], availablePlayers[k]] = [availablePlayers[k], availablePlayers[j]];
+      for (let r = 0; r < rounds; r++) {
+        const available = [...players];
+        for (let i = available.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [available[i], available[j]] = [available[j], available[i]];
         }
-        while (availablePlayers.length > 1) {
-          const player1 = availablePlayers.shift();
+
+        const matches = [];
+        const usedTables = new Set();
+
+        while (available.length > 1) {
+          const p1 = available.shift();
           let matchMade = false;
-          for (let j = 0; j < availablePlayers.length; j++) {
-            const player2 = availablePlayers[j];
-            const pairKey = [player1, player2].sort().join('-');
-            if (!playedPairs.has(pairKey)) {
+
+          for (let i = 0; i < available.length; i++) {
+            const p2 = available[i];
+            const key = [p1, p2].sort().join('-');
+            if (!playedPairs.has(key)) {
               for (let t = 1; t <= tables; t++) {
-                const tableUsers = usedTables.get(t) || new Set();
-                if (!tableUsers.has(player1) && !tableUsers.has(player2) && !roundUsedTables.has(t)) {
-                  roundMatches.push({ player1, player2, table: t });
-                  playedPairs.add(pairKey);
-                  tableUsers.add(player1);
-                  tableUsers.add(player2);
-                  usedTables.set(t, tableUsers);
-                  roundUsedTables.add(t);
-                  availablePlayers.splice(j, 1);
+                if (!tableHistory.get(p1).has(t) && !tableHistory.get(p2).has(t) && !usedTables.has(t)) {
+                  matches.push({ player1: p1, player2: p2, table: t });
+                  playedPairs.add(key);
+                  tableHistory.get(p1).add(t);
+                  tableHistory.get(p2).add(t);
+                  usedTables.add(t);
+                  available.splice(i, 1);
                   matchMade = true;
                   break;
                 }
@@ -229,24 +210,32 @@
               if (matchMade) break;
             }
           }
-          if (!matchMade) availablePlayers.push(player1);
+
+          if (!matchMade) {
+            // fallback: skip perfect match enforcement
+            const p2 = available.pop();
+            matches.push({ player1: p1, player2: p2, table: -1 });
+          }
         }
-        if (availablePlayers.length === 1) {
-          roundMatches.push({ player1: availablePlayers[0], player2: null, table: -1 });
+
+        if (available.length === 1) {
+          matches.push({ player1: available[0], player2: null, table: -1 });
         }
-        schedule.push({ round: i + 1, matches: roundMatches });
+
+        schedule.push({ round: r + 1, matches });
       }
+
       return schedule;
     }
 
     function startTournament() {
-      const tables = parseInt(tablesInput.value) || 5;
-      const rounds = parseInt(roundsInput.value) || 3;
-      schedule = generateSchedule(players, tables, rounds);
-      renderSchedule();
+      const tables = parseInt(tablesInput.value);
+      const rounds = parseInt(roundsInput.value);
+      const result = generateSchedule(players, tables, rounds);
+      renderSchedule(result);
     }
 
-    function renderSchedule() {
+    function renderSchedule(schedule) {
       scheduleContainer.innerHTML = '';
       schedule.forEach(round => {
         const div = document.createElement('div');
