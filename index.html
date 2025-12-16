@@ -19,21 +19,19 @@
                 background: radial-gradient(circle at top, #101633, var(--bg));
                 color: var(--text);
                 font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-                padding: 1.5rem;
+                padding: 2rem 1.5rem;
             }
 
             .app {
                 max-width: 600px;
                 margin: 2rem auto 3rem auto;
             }
-
             h1 {
                 text-align: center;
                 color: var(--neon);
                 text-shadow: 0 0 12px var(--neon-soft);
                 margin-bottom: 1rem;
             }
-
             .controls {
                 display: flex;
                 flex-wrap: wrap;
@@ -44,7 +42,6 @@
                 border-radius: 10px;
                 box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
             }
-
             textarea,
             input[type="number"] {
                 padding: 0.6rem;
@@ -55,23 +52,19 @@
                 width: 100%;
                 box-sizing: border-box;
             }
-
             textarea::placeholder {
                 color: #6ee7e0;
                 opacity: 0.7;
             }
-
             textarea:focus,
             input:focus {
                 outline: none;
                 border-color: var(--neon);
                 box-shadow: 0 0 8px var(--neon-soft);
             }
-
             textarea {
                 resize: vertical;
             }
-
             button {
                 background: linear-gradient(135deg, #00c6ff, #00fff6);
                 color: #002b2a;
@@ -84,25 +77,21 @@
                 letter-spacing: 0.5px;
                 box-shadow: 0 0 12px var(--neon-soft);
             }
-
             button:hover:not(:disabled) {
                 filter: brightness(1.1);
             }
-
             button:disabled {
                 background: #333;
                 color: #777;
                 box-shadow: none;
                 cursor: not-allowed;
             }
-
             .players {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 0.5rem;
                 margin: 1rem 0;
             }
-
             .player {
                 background: #0e1325;
                 padding: 0.4rem 0.6rem;
@@ -113,7 +102,6 @@
                 border: 1px solid var(--neon-soft);
                 box-shadow: 0 0 6px rgba(0, 255, 246, 0.15);
             }
-
             .player button {
                 background: none;
                 border: none;
@@ -129,11 +117,9 @@
                 justify-content: center;
                 border-radius: 50%;
             }
-
             .player button:hover {
                 background: rgba(255, 56, 100, 0.15);
             }
-
             .round {
                 margin-top: 1.5rem;
                 background: var(--panel);
@@ -142,20 +128,17 @@
                 border: 1px solid var(--neon-soft);
                 box-shadow: 0 0 16px rgba(0, 0, 0, 0.6);
             }
-
             .round h2 {
                 margin-top: 0;
                 color: var(--neon);
                 text-shadow: 0 0 8px var(--neon-soft);
             }
-
             label {
                 font-size: 0.75rem;
                 text-transform: uppercase;
                 letter-spacing: 0.08em;
                 opacity: 0.8;
             }
-
             .half {
                 flex: 1 1 48%;
                 display: flex;
@@ -177,23 +160,19 @@
 Bob
 Charlie"></textarea>
                 </div>
-
                 <button id="addPlayersBtn">Add Players</button>
-
                 <div class="half">
                     <label>Tables</label>
-                    <input type="number" id="tablesInput" min="1" max="8" value="5" />
+                    <input type="number" id="tablesInput" min="1" value="5" />
                 </div>
                 <div class="half">
                     <label>Rounds</label>
-                    <input type="number" id="roundsInput" min="1" max="3" value="3" />
+                    <input type="number" id="roundsInput" min="1" value="3" />
                 </div>
             </div>
 
             <div class="players" id="players"></div>
-
             <button id="startBtn" disabled>Start Tournament</button>
-
             <div id="schedule"></div>
         </div>
 
@@ -215,7 +194,6 @@ Charlie"></textarea>
             function addPlayers() {
                 const raw = playerInput.value.trim();
                 if (!raw) return;
-
                 const names = raw
                     .split(/\r?\n/)
                     .map((n) => n.trim())
@@ -224,7 +202,6 @@ Charlie"></textarea>
                     if (players.length >= maxPlayers) break;
                     if (!players.includes(name)) players.push(name);
                 }
-
                 playerInput.value = "";
                 renderPlayers();
             }
@@ -234,10 +211,8 @@ Charlie"></textarea>
                 players.forEach((p, index) => {
                     const div = document.createElement("div");
                     div.className = "player";
-
                     const nameSpan = document.createElement("span");
                     nameSpan.textContent = p;
-
                     const removeBtn = document.createElement("button");
                     removeBtn.textContent = "×";
                     removeBtn.title = "Remove player";
@@ -245,7 +220,6 @@ Charlie"></textarea>
                         players.splice(index, 1);
                         renderPlayers();
                     });
-
                     div.appendChild(nameSpan);
                     div.appendChild(removeBtn);
                     playersDiv.appendChild(div);
@@ -253,40 +227,59 @@ Charlie"></textarea>
                 startBtn.disabled = players.length < 2;
             }
 
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
             function generateSchedule(players, tables, rounds) {
                 const schedule = [];
-                const playedPairs = new Set();
+                const playerTableHistory = {};
+                const playerPairHistory = {};
+                players.forEach((p) => {
+                    playerTableHistory[p] = new Set();
+                    playerPairHistory[p] = new Set();
+                });
 
                 for (let r = 0; r < rounds; r++) {
-                    const available = [...players];
+                    let available = shuffle([...players]);
                     const matches = [];
+                    const tableAssignments = Array.from({ length: tables }, () => []);
 
-                    while (available.length > 1) {
+                    while (available.length > 0) {
                         const p1 = available.shift();
-                        let found = false;
+                        let paired = false;
 
                         for (let i = 0; i < available.length; i++) {
                             const p2 = available[i];
-                            const key = [p1, p2].sort().join("-");
-                            if (!playedPairs.has(key)) {
-                                matches.push({ player1: p1, player2: p2, table: (matches.length % tables) + 1 });
-                                playedPairs.add(key);
-                                available.splice(i, 1);
-                                found = true;
-                                break;
+                            if (!playerPairHistory[p1].has(p2)) {
+                                for (let t = 0; t < tables; t++) {
+                                    if (!playerTableHistory[p1].has(t + 1) && !playerTableHistory[p2].has(t + 1) && tableAssignments[t].length < 2) {
+                                        tableAssignments[t].push(p1, p2);
+                                        playerTableHistory[p1].add(t + 1);
+                                        playerTableHistory[p2].add(t + 1);
+                                        playerPairHistory[p1].add(p2);
+                                        playerPairHistory[p2].add(p1);
+                                        available.splice(i, 1);
+                                        matches.push({ player1: p1, player2: p2, table: t + 1 });
+                                        paired = true;
+                                        break;
+                                    }
+                                }
                             }
+                            if (paired) break;
                         }
 
-                        if (!found) {
-                            const p2 = available.pop();
-                            matches.push({ player1: p1, player2: p2 || null, table: -1 });
+                        if (!paired) {
+                            matches.push({ player1: p1, player2: available.shift() || null, table: -1 });
                         }
                     }
 
-                    if (available.length === 1) {
-                        matches.push({ player1: available[0], player2: null, table: -1 });
-                    }
-
+                    // Order matches by table number for readability
+                    matches.sort((a, b) => a.table - b.table);
                     schedule.push({ round: r + 1, matches });
                 }
                 return schedule;
